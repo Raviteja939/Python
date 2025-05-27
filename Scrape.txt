@@ -1,0 +1,100 @@
+Question: Write a Python program to Scrape the below-mentioned site and bring in the list of the first 6 projects under the “Projects Registered” heading containing the following fields in their detail pages (click on View Details to see the detail): Rera Regd. No, Project Name, Promoter Name (Company Name under Promoter Details Tab), Address of the Promoter (Registered Office Address under Promoter Details Tab), GST No.
+https://rera.odisha.gov.in/projects/project-list
+
+Required pip install requirements: pip install selenium beautifulsoup4 pandas webdriver-manager
+
+Program: 
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+from bs4 import BeautifulSoup
+import time
+import pandas as pd
+from webdriver_manager.chrome import ChromeDriverManager
+
+# Setup Selenium WebDriver
+options = webdriver.ChromeOptions()
+options.add_argument("--headless")  # Run in headless mode
+driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+
+# Target URL
+url = "https://rera.odisha.gov.in/projects/project-list"
+driver.get(url)
+time.sleep(3)
+
+# Accept cookies if the popup appears
+try:
+    accept = driver.find_element(By.ID, "btnAccept")
+    accept.click()
+    time.sleep(1)
+except:
+    pass
+
+# Extract the links for the first 6 project "View Details"
+project_links = []
+projects = driver.find_elements(By.XPATH, '//a[contains(text(), "View Details")]')
+for i in range(min(6, len(projects))):
+    project_links.append(projects[i].get_attribute('href'))
+
+# List to hold all data
+data = []
+
+for link in project_links:
+    driver.get(link)
+    time.sleep(2)
+    soup = BeautifulSoup(driver.page_source, 'html.parser')
+
+    # Extract RERA Regd. No
+    try:
+        reg_no = soup.find('label', string="RERA Regd. No:").find_next_sibling('label').text.strip()
+    except:
+        reg_no = 'N/A'
+
+    # Extract Project Name
+    try:
+        project_name = soup.find('label', string="Project Name:").find_next_sibling('label').text.strip()
+    except:
+        project_name = 'N/A'
+
+    # Go to Promoter Details Tab
+    try:
+        promoter_tab = driver.find_element(By.XPATH, '//a[contains(text(), "Promoter Details")]')
+        promoter_tab.click()
+        time.sleep(1)
+        soup = BeautifulSoup(driver.page_source, 'html.parser')
+    except:
+        pass
+
+    # Extract Promoter Name
+    try:
+        promoter_name = soup.find('label', string="Company Name:").find_next_sibling('label').text.strip()
+    except:
+        promoter_name = 'N/A'
+
+    # Extract Registered Office Address
+    try:
+        address = soup.find('label', string="Registered Office Address:").find_next_sibling('label').text.strip()
+    except:
+        address = 'N/A'
+
+    # Extract GST No
+    try:
+        gst_no = soup.find('label', string="GST No:").find_next_sibling('label').text.strip()
+    except:
+        gst_no = 'N/A'
+
+    # Append to data
+    data.append({
+        'RERA Regd. No': reg_no,
+        'Project Name': project_name,
+        'Promoter Name': promoter_name,
+        'Promoter Address': address,
+        'GST No': gst_no
+    })
+
+# Close the driver
+driver.quit()
+
+# Print or export the result
+df = pd.DataFrame(data)
+print(df.to_string(index=False))
